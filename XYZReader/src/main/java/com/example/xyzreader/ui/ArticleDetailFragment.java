@@ -16,8 +16,12 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.GregorianCalendar;
 
+import android.os.Build;
 import android.os.Bundle;
+import android.support.design.widget.CollapsingToolbarLayout;
 import android.support.v4.app.ShareCompat;
+import android.support.v4.content.ContextCompat;
+import android.support.v7.app.AppCompatActivity;
 import android.support.v7.graphics.Palette;
 import android.text.Html;
 import android.text.format.DateUtils;
@@ -27,12 +31,15 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.ImageLoader;
 import com.example.xyzreader.R;
 import com.example.xyzreader.data.ArticleLoader;
+import com.github.clans.fab.FloatingActionButton;
+import com.github.clans.fab.FloatingActionMenu;
 
 /**
  * A fragment representing a single Article detail screen. This fragment is
@@ -55,17 +62,21 @@ public class ArticleDetailFragment extends Fragment implements
     private ColorDrawable mStatusBarColorDrawable;
 
     private int mTopInset;
-    private View mPhotoContainerView;
+    private CollapsingToolbarLayout mPhotoContainerView;
     private ImageView mPhotoView;
     private int mScrollY;
     private boolean mIsCard = false;
     private int mStatusBarFullOpacityBottom;
+    boolean lightsOn = true;
 
     private SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.sss");
     // Use default locale format
     private SimpleDateFormat outputFormat = new SimpleDateFormat();
     // Most time functions can only handle 1902 - 2037
     private GregorianCalendar START_OF_EPOCH = new GregorianCalendar(2,1,1);
+
+    FloatingActionMenu materialDesignFAM;
+    FloatingActionButton btnLights, btnShare;
 
     /**
      * Mandatory empty constructor for the fragment manager to instantiate the
@@ -136,13 +147,43 @@ public class ArticleDetailFragment extends Fragment implements
         });
 
         mPhotoView = (ImageView) mRootView.findViewById(R.id.photo);
-        mPhotoContainerView = mRootView.findViewById(R.id.photo_container);
+        mPhotoContainerView = (CollapsingToolbarLayout) mRootView.findViewById(R.id.collapsing_toolbar);
 
         mStatusBarColorDrawable = new ColorDrawable(0);
 
-        mRootView.findViewById(R.id.share_fab).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
+
+        bindViews();
+        updateStatusBar();
+
+        materialDesignFAM = (FloatingActionMenu) mRootView.findViewById(R.id.options_fab);
+        btnLights = (FloatingActionButton) mRootView.findViewById(R.id.btn_lights);
+        btnShare = (FloatingActionButton) mRootView.findViewById(R.id.btn_share);
+
+        btnLights.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                TextView body = (TextView) mRootView.findViewById(R.id.article_body);
+                TextView articleByLine = (TextView) mRootView.findViewById(R.id.article_byline);
+                LinearLayout container = (LinearLayout) mRootView.findViewById(R.id.body_container);
+                if(lightsOn){
+                    body.setTextColor(ContextCompat.getColor(getActivity(),R.color.white));
+                    articleByLine.setTextColor(ContextCompat.getColor(getActivity(),R.color.white));
+                    container.setBackgroundColor(ContextCompat.getColor(getActivity(), R.color.black));
+                    btnLights.setImageDrawable(ContextCompat.getDrawable(getActivity(), R.drawable.ic_lights_on));
+                    btnLights.setLabelText(getString(R.string.turn_lights_on));
+                }else{
+                    body.setTextColor(ContextCompat.getColor(getActivity(),R.color.black));
+                    articleByLine.setTextColor(ContextCompat.getColor(getActivity(),R.color.black));
+                    container.setBackgroundColor(ContextCompat.getColor(getActivity(), R.color.white));
+                    btnLights.setImageDrawable(ContextCompat.getDrawable(getActivity(), R.drawable.ic_lights_off));
+                    btnLights.setLabelText(getString(R.string.turn_lights_off));
+                }
+                lightsOn = !lightsOn;
+                materialDesignFAM.close(true);
+            }
+        });
+        btnShare.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                materialDesignFAM.close(true);
                 startActivity(Intent.createChooser(ShareCompat.IntentBuilder.from(getActivity())
                         .setType("text/plain")
                         .setText("Some sample text")
@@ -150,8 +191,6 @@ public class ArticleDetailFragment extends Fragment implements
             }
         });
 
-        bindViews();
-        updateStatusBar();
         return mRootView;
     }
 
@@ -200,7 +239,7 @@ public class ArticleDetailFragment extends Fragment implements
             return;
         }
 
-        TextView titleView = (TextView) mRootView.findViewById(R.id.article_title);
+        CollapsingToolbarLayout toolbarLayout = (CollapsingToolbarLayout) mRootView.findViewById(R.id.collapsing_toolbar);
         TextView bylineView = (TextView) mRootView.findViewById(R.id.article_byline);
         bylineView.setMovementMethod(new LinkMovementMethod());
         TextView bodyView = (TextView) mRootView.findViewById(R.id.article_body);
@@ -212,7 +251,7 @@ public class ArticleDetailFragment extends Fragment implements
             mRootView.setAlpha(0);
             mRootView.setVisibility(View.VISIBLE);
             mRootView.animate().alpha(1);
-            titleView.setText(mCursor.getString(ArticleLoader.Query.TITLE));
+            toolbarLayout.setTitle(mCursor.getString(ArticleLoader.Query.TITLE));
             Date publishedDate = parsePublishedDate();
             if (!publishedDate.before(START_OF_EPOCH.getTime())) {
                 bylineView.setText(Html.fromHtml(
@@ -242,8 +281,6 @@ public class ArticleDetailFragment extends Fragment implements
                                 Palette p = Palette.generate(bitmap, 12);
                                 mMutedColor = p.getDarkMutedColor(0xFF333333);
                                 mPhotoView.setImageBitmap(imageContainer.getBitmap());
-                                mRootView.findViewById(R.id.meta_bar)
-                                        .setBackgroundColor(mMutedColor);
                                 updateStatusBar();
                             }
                         }
@@ -255,7 +292,7 @@ public class ArticleDetailFragment extends Fragment implements
                     });
         } else {
             mRootView.setVisibility(View.GONE);
-            titleView.setText("N/A");
+            toolbarLayout.setTitle("N/A");
             bylineView.setText("N/A" );
             bodyView.setText("N/A");
         }
